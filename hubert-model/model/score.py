@@ -24,9 +24,10 @@ def init():
     logging.info(f"Loading model from: {model_path}")
     
     try:
-        # Load the feature extractor and model from the local model directory
+        # Load the feature extractor and HuBERT model from the local model directory
         feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_path)
         model = HubertModel.from_pretrained(model_path)
+        model.eval()
         
         logging.info("HuBERT model and feature extractor loaded successfully.")
     except Exception as e:
@@ -64,21 +65,23 @@ def run(raw_data):
             speech_array = librosa.resample(speech_array, orig_sr=sample_rate, target_sr=16000)
             sample_rate = 16000
         
-        # Process audio with HuBERT
+        # Process audio with HuBERT feature extractor
         inputs = feature_extractor(speech_array, sampling_rate=sample_rate, return_tensors="pt", padding=True)
         
         with torch.no_grad():
             outputs = model(inputs.input_values)
+            # Get hidden states from the last layer
+            hidden_states = outputs.last_hidden_state  # Shape: (batch, seq_len, hidden_dim)
         
-        # Extract hidden states (features)
-        hidden_states = outputs.last_hidden_state
+        # Apply mean pooling over the time dimension to get fixed-size embeddings
+        embeddings = torch.mean(hidden_states, dim=1)  # Shape: (batch, hidden_dim)
         
-        # Return the embeddings
-        embeddings = hidden_states.mean(dim=1).squeeze().tolist()
+        # Convert to numpy and then to list for JSON serialization
+        embeddings_list = embeddings.squeeze().cpu().numpy().tolist()
         
-        logging.info(f"Generated embeddings of length: {len(embeddings)}")
+        logging.info(f"Extracted embeddings with dimension: {len(embeddings_list)}")
         
-        return {"status": "success", "embeddings": embeddings}
+        return {"status": "success", "embeddings": embeddings_list}
         
     except Exception as e:
         logging.error(f"Error processing request: {str(e)}")

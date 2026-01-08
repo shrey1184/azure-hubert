@@ -6,7 +6,7 @@ endpoint_name: hf-hubert2-endpoint-sti
 model: azureml:hubert-cpu:1
 environment: azureml:hubert-env:1
 
-instance_type: Standard_DS1_v2
+instance_type: Standard_F2s_v2
 instance_count: 1
 
 request_settings:
